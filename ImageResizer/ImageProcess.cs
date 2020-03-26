@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace ImageResizer
 {
@@ -35,6 +36,37 @@ namespace ImageResizer
         /// <param name="sourcePath">圖片來源目錄路徑</param>
         /// <param name="destPath">產生圖片目的目錄路徑</param>
         /// <param name="scale">縮放比例</param>
+        public void ResizeImagesRefine(string sourcePath, string destPath, double scale)
+        {
+            List<Task> tasks = new List<Task>();
+            var allFiles = FindImages(sourcePath);
+            foreach (var filePath in allFiles)
+            {
+                tasks.Add(Task.Run(() =>
+                {
+                    //System.Console.WriteLine("{0:D2}, {1:H:mm:ss.fff}, Start", System.Threading.Thread.CurrentThread.ManagedThreadId, System.DateTime.Now);
+                    Image imgPhoto = Image.FromFile(filePath);
+                    string imgName = Path.GetFileNameWithoutExtension(filePath);
+
+                    int sourceWidth = imgPhoto.Width;
+                    int sourceHeight = imgPhoto.Height;
+
+                    int destionatonWidth = (int)(sourceWidth * scale);
+                    int destionatonHeight = (int)(sourceHeight * scale);
+
+                    Bitmap processedImage = processBitmap((Bitmap)imgPhoto,
+                        sourceWidth, sourceHeight,
+                        destionatonWidth, destionatonHeight);
+
+                    string destFile = Path.Combine(destPath, imgName + ".jpg");
+                    processedImage.Save(destFile, ImageFormat.Jpeg);
+                    //System.Console.WriteLine("{0:D2}, {1:H:mm:ss.fff}, End", System.Threading.Thread.CurrentThread.ManagedThreadId, System.DateTime.Now);
+                }));
+            }
+
+            Task.WaitAll(tasks.ToArray());
+        }
+
         public void ResizeImages(string sourcePath, string destPath, double scale)
         {
             var allFiles = FindImages(sourcePath);
@@ -57,6 +89,7 @@ namespace ImageResizer
                 processedImage.Save(destFile, ImageFormat.Jpeg);
             }
         }
+
 
         /// <summary>
         /// 找出指定目錄下的圖片
@@ -81,6 +114,20 @@ namespace ImageResizer
         /// <param name="newWidth">新圖片的寬度</param>
         /// <param name="newHeight">新圖片的高度</param>
         /// <returns></returns>
+        Task<Bitmap> processBitmapAsync(Bitmap img, int srcWidth, int srcHeight, int newWidth, int newHeight)
+        {
+            Bitmap resizedbitmap = new Bitmap(newWidth, newHeight);
+            Graphics g = Graphics.FromImage(resizedbitmap);
+            g.InterpolationMode = InterpolationMode.High;
+            g.SmoothingMode = SmoothingMode.HighQuality;
+            g.Clear(Color.Transparent);
+            g.DrawImage(img,
+            new Rectangle(0, 0, newWidth, newHeight),
+            new Rectangle(0, 0, srcWidth, srcHeight),
+            GraphicsUnit.Pixel);
+            return Task.FromResult(resizedbitmap);
+        }
+
         Bitmap processBitmap(Bitmap img, int srcWidth, int srcHeight, int newWidth, int newHeight)
         {
             Bitmap resizedbitmap = new Bitmap(newWidth, newHeight);
@@ -89,9 +136,9 @@ namespace ImageResizer
             g.SmoothingMode = SmoothingMode.HighQuality;
             g.Clear(Color.Transparent);
             g.DrawImage(img,
-                new Rectangle(0, 0, newWidth, newHeight),
-                new Rectangle(0, 0, srcWidth, srcHeight),
-                GraphicsUnit.Pixel);
+            new Rectangle(0, 0, newWidth, newHeight),
+            new Rectangle(0, 0, srcWidth, srcHeight),
+            GraphicsUnit.Pixel);
             return resizedbitmap;
         }
     }
